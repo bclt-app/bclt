@@ -6,7 +6,7 @@
 
 **Architecture:** Monorepo Bun à espaces de travail. `spec/` est la source de vérité lisible par un humain et par une autre implémentation ; `packages/protocol` en est la seule implémentation TypeScript, pure (aucune dépendance de plateforme, aucune notion de produit), consommée ensuite par `core`, `relay` et `media` (plans 2 et 3).
 
-**Tech Stack:** Bun 1.4 (`bun check` pour le typage, `bun fmt` pour le formatage, `bun test`, et `bun lint --type-aware` dès sa première version stable), TypeScript strict, `@noble/ed25519` 2.2.3, `@noble/hashes` 1.8.0, `@scure/base` 1.2.6, GitHub Actions.
+**Tech Stack:** Bun 1.4 (`bun check` pour le typage, `bun fmt` pour le formatage, `bun test`, et `bun lint --type-aware` dès sa première version stable), TypeScript strict, `@types/bun` 1.4.4 (dépendance de dev), `@noble/ed25519` 2.2.3, `@noble/hashes` 1.8.0, `@scure/base` 1.2.6, GitHub Actions.
 
 **Spec:** `docs/superpowers/specs/2026-11-11-bclt-design.md` (sections 2, 4.1, 4.6, 8.4).
 
@@ -20,6 +20,9 @@
 - Textes destinés aux utilisateurs en français ; identifiants de code, messages de protocole et commits en anglais.
 - Commits fréquents, préfixés `feat:`, `test:`, `chore:`, `docs:`, chacun terminé par la ligne `Co-Authored-By:` du modèle qui a réellement produit le commit, telle que l'environnement la fournit au moment du commit (ne jamais recopier un nom de modèle depuis ce plan).
 - Développement en TDD : chaque tâche commence par ses tests qui échouent.
+- Les blocs de test de ce plan dépassent `print-width = 100` : lancer `bun fmt` (ou `bun fmt --changed=origin/main`) avant chaque `bun run verify`, sinon `bun fmt --check` échoue.
+- Un ticket = une branche (nom fourni par Linear) = une PR vers `main`. Jamais de push direct sur `main`.
+- Dépendances de dev : seul `@types/bun` 1.4.4 à la racine (tâche 1). La contrainte « aucune dépendance » de `packages/protocol` ne vise que ses dépendances d'exécution.
 
 ## Review Focus
 
@@ -63,9 +66,9 @@ Expected: FAIL, module `../src/index` introuvable.
 
 - [ ] **Step 3: Créer la racine**
 
-`package.json` racine : `"name": "bclt"`, `"private": true`, `"workspaces": ["packages/*", "apps/*"]`, scripts `fmt: "bun fmt"`, `lint: "bun lint --type-aware"`, `verify: "bun fmt --check && bun check && bun test"` (le lint rejoint `verify` à la tâche 10, voir ci-dessous). Aucune dépendance de dev : typage par `bun check`, formatage par `bun fmt`. Si `bun check` réclame `typescript`, l'ajouter en version exacte et le noter dans le README.
+`package.json` racine : `"name": "bclt"`, `"private": true`, `"workspaces": ["packages/*", "apps/*"]`, scripts `fmt: "bun fmt"`, `lint: "bun lint --type-aware"`, `verify: "bun fmt --check && bun check && bun test"` (le lint rejoint `verify` à la tâche 10, voir ci-dessous). Typage par `bun check`, formatage par `bun fmt`. Une seule dépendance de dev, à la racine : `"devDependencies": { "@types/bun": "1.4.4" }` (version exacte, celle de Bun). Elle est nécessaire : vérifié avec Bun 1.4.4, sans `@types/bun` installé, `bun check` ne résout ni `bun:test` ni `Bun`, que `types` soit présent ou non. Si `bun check` réclame aussi `typescript`, l'ajouter en version exacte et le noter dans le README.
 
-`tsconfig.base.json` : `strict`, `noUncheckedIndexedAccess`, `noUnusedLocals`, `noUnusedParameters`, `module: "ESNext"`, `moduleResolution: "bundler"`, `target: "ES2022"`, `types: ["bun-types"]`, `resolveJsonModule: true` (les tests importent `spec/vectors/*.json`), `noEmit`.
+`tsconfig.base.json` : `strict`, `noUncheckedIndexedAccess`, `noUnusedLocals`, `noUnusedParameters`, `module: "ESNext"`, `moduleResolution: "bundler"`, `target: "ES2022"`, `types: ["bun"]` (fourni par `@types/bun`), `resolveJsonModule: true` (les tests importent `spec/vectors/*.json`), `noEmit`.
 
 `bunfig.toml` : section `[fmt]` avec `print-width = 100` (2 espaces, guillemets doubles et points-virgules sont les défauts), et section `[lint]` avec `typeAware = true`, prête pour `bun lint` (présent en canary, absent de la 1.4.4 stable ; la configuration est inerte tant que la commande n'existe pas).
 
@@ -73,26 +76,38 @@ Expected: FAIL, module `../src/index` introuvable.
 
 `LICENSE` racine : texte AGPL-3.0, avec `README.md` précisant que `packages/protocol` et `packages/core` sont sous MIT.
 
-- [ ] **Step 4: Créer le paquet `@bclt/protocol`**
+- [ ] **Step 4: Formater l'existant dans un commit séparé**
+
+`bun fmt --check` vérifie aussi le Markdown : sans cette étape, `verify` échouerait sur `docs/**/*.md` et `README.md`, qui existent déjà. Pas d'exclusion dans `bunfig.toml`. Une fois `bunfig.toml` créé (étape 3), formater le dépôt existant et le committer seul, avant le commit de squelette :
+
+```bash
+bun fmt
+git add -u
+git commit -m "chore: format existing docs"
+```
+
+`git add -u` n'ajoute que les fichiers déjà suivis, donc pas les fichiers de l'étape 3.
+
+- [ ] **Step 5: Créer le paquet `@bclt/protocol`**
 
 `packages/protocol/package.json` : `"name": "@bclt/protocol"`, `"version": "0.0.1"`, `"license": "MIT"`, `"type": "module"`, `"exports": { ".": "./src/index.ts" }`, dépendances exactes `@noble/ed25519@2.2.3`, `@noble/hashes@1.8.0`, `@scure/base@1.2.6`. `tsconfig.json` étend la base, `include: ["src", "test"]`.
 
 `src/index.ts` : `export const PROTOCOL_VERSION = "v0" as const;`
 
-- [ ] **Step 5: Installer et vérifier**
+- [ ] **Step 6: Installer et vérifier**
 
-Run: `bun install && bun run verify`
+Run: `bun install && bun fmt && bun run verify`
 Expected: les trois commandes passent, 1 test PASS.
 
-- [ ] **Step 6: CI**
+- [ ] **Step 7: CI**
 
 `.github/workflows/ci.yml` : déclenché sur `push` et `pull_request`, un job Ubuntu avec `oven-sh/setup-bun@v2` (version `1.4.4`), puis `bun install --frozen-lockfile` et `bun run verify`.
 
-- [ ] **Step 7: README**
+- [ ] **Step 8: README**
 
 Remplacer la section "Statut" du README par : structure du dépôt (`spec/`, `packages/`, `apps/`, `deploy/`, `docs/`), prérequis (Bun 1.4), et les trois commandes.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add -A
@@ -115,7 +130,7 @@ Sections, chacune avec exactement ces règles :
 
 **1. Encodages.** Octets en hex minuscules. Clé publique 32 octets (64 hex), identifiant 32 octets (64 hex), signature 64 octets (128 hex). Forme lisible d'une clé publique : bech32 (BIP-173, limite 90 caractères), préfixe `bclt`, données = clé publique en mots de 5 bits. Discriminant : les 4 premiers caractères après `bclt1`.
 
-**2. Événement.** Objet JSON à exactement six clés : `id`, `pubkey`, `created_at`, `kind`, `tags`, `content`, `sig`. Toute clé supplémentaire rend l'événement invalide. `created_at` entier ≥ 0 en secondes Unix. `kind` entier ≥ 0. `tags` tableau de tableaux de chaînes, chaque étiquette ayant au moins un élément (son nom). `content` chaîne.
+**2. Événement.** Objet JSON à exactement sept clés : `id`, `pubkey`, `created_at`, `kind`, `tags`, `content`, `sig`. Toute clé supplémentaire rend l'événement invalide. `created_at` entier ≥ 0 en secondes Unix. `kind` entier ≥ 0. `tags` tableau de tableaux de chaînes, chaque étiquette ayant au moins un élément (son nom). `content` chaîne.
 
 **3. Forme canonique et identifiant.** Forme canonique = sérialisation JSON sans espaces du tableau `[0, pubkey, created_at, kind, tags, content]`, avec les règles d'échappement de `JSON.stringify` d'ECMAScript : seuls `"`, `\` et les caractères de contrôle U+0000 à U+001F sont échappés (`\"`, `\\`, `\b`, `\f`, `\n`, `\r`, `\t`, sinon `\u00XX`), tout autre caractère est émis tel quel en UTF-8. `id` = SHA-256 des octets UTF-8 de la forme canonique.
 
@@ -444,7 +459,7 @@ test("profile: valid, name required and bounded, bad json", () => {
   expect(code(sign(Kind.Profile, [], JSON.stringify({ name: "léa" })))).toBe("ok");
   expect(code(sign(Kind.Profile, [], JSON.stringify({ about: "x" })))).toBe("bad-content");
   expect(code(sign(Kind.Profile, [], JSON.stringify({ name: "x".repeat(31) })))).toBe("bad-content");
-  expect(code(sign(Kind.Profile, [], "{not json")).toBe("bad-content");
+  expect(code(sign(Kind.Profile, [], "{not json"))).toBe("bad-content");
   expect(parseProfile(JSON.stringify({ name: "léa", relays: ["wss://r"] }))).toEqual({ name: "léa", relays: ["wss://r"] });
   expect(parseProfile(JSON.stringify({ name: "léa", relays: ["http://r"] }))).toBeNull();
 });
@@ -621,28 +636,32 @@ git commit -m "feat(protocol): replaceable event keys and subscription filters"
 ```ts
 import { test, expect } from "bun:test";
 import { parseClientMessage, parseRelayMessage, serializeClientMessage, serializeRelayMessage, okMessage, WS_SUBPROTOCOL } from "../src/messages";
+import type { ClientMessage, RelayMessage } from "../src/messages";
 import vectors from "../../../spec/vectors/events.json";
 const post = vectors.find((v) => v.name === "post")!.event;
 
 test("subprotocol constant", () => expect(WS_SUBPROTOCOL).toBe("bclt.v0"));
 test("client messages round-trip", () => {
-  for (const m of [
+  // Pas de `as const` : il rendrait `filters` et `kinds` readonly, que `serializeClientMessage` refuse.
+  const messages: ClientMessage[] = [
     { type: "PUBLISH", event: post },
     { type: "REQ", subId: "feed", filters: [{ kinds: [1], limit: 50 }] },
     { type: "CLOSE", subId: "feed" },
-  ] as const) {
+  ];
+  for (const m of messages) {
     const r = parseClientMessage(serializeClientMessage(m));
     expect(r).toEqual({ ok: true, message: m });
   }
 });
 test("relay messages round-trip", () => {
-  for (const m of [
+  const messages: RelayMessage[] = [
     { type: "EVENT", subId: "feed", event: post },
     { type: "EOSE", subId: "feed" },
     { type: "OK", eventId: post.id, accepted: false, message: okMessage("rate-limited", "slow down") },
     { type: "AUTH", challenge: "c".repeat(32) },
     { type: "NOTICE", message: "bye" },
-  ] as const) {
+  ];
+  for (const m of messages) {
     expect(parseRelayMessage(serializeRelayMessage(m))).toEqual({ ok: true, message: m });
   }
 });
@@ -839,12 +858,15 @@ test("generate.ts reproduces the committed vectors byte for byte", () => {
 
 - [ ] **Step 6: Activer `bun lint` si une version stable le contient** : vérifier sur https://bun.com/blog si une version stable postérieure à 1.4.4 inclut `bun lint`. Si oui : mettre cette version dans `oven-sh/setup-bun` de la CI, mettre à jour Bun localement (`bun upgrade`), ajouter `bun lint --type-aware --max-warnings 0 &&` en tête du script `verify`, corriger ce qu'il remonte, et noter la version minimale de Bun dans le README. Si non : laisser `verify` tel quel et ouvrir une tâche dans le plan 2.
 
-- [ ] **Step 7: Vérification finale de la phase** — Run: `bun install --frozen-lockfile && bun run verify` — Expected: tout PASS ; puis pousser et vérifier que la CI GitHub est verte sur `main`.
+- [ ] **Step 7: Vérification finale de la phase** — Run: `bun install --frozen-lockfile && bun fmt && bun run verify` — Expected: tout PASS ; puis pousser la branche du ticket et vérifier que la CI GitHub est verte sur la PR.
 
-- [ ] **Step 8: Commit et push**
+- [ ] **Step 8: Commit, push de la branche et PR**
 
 ```bash
 git add -A
 git commit -m "docs: protocol package readme, vector generator, spec alignment"
-git push origin HEAD:main
+git push -u origin HEAD
+gh pr create --base main --title "docs: protocol package readme, vector generator, spec alignment (<ID>)"
 ```
+
+`HEAD` est la branche Linear du ticket ; `<ID>` est l'identifiant du ticket. La PR est mergée après CI verte, jamais poussée directement sur `main`.
