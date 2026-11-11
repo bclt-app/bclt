@@ -6,7 +6,7 @@
 
 **Architecture:** Monorepo Bun à espaces de travail. `spec/` est la source de vérité lisible par un humain et par une autre implémentation ; `packages/protocol` en est la seule implémentation TypeScript, pure (aucune dépendance de plateforme, aucune notion de produit), consommée ensuite par `core`, `relay` et `media` (plans 2 et 3).
 
-**Tech Stack:** Bun 1.4 (`bun check` pour le typage, `bun fmt` pour le formatage, `bun test`), TypeScript strict, pas de linter, `@noble/ed25519` 2.2.3, `@noble/hashes` 1.8.0, `@scure/base` 1.2.6, GitHub Actions.
+**Tech Stack:** Bun 1.4 (`bun check` pour le typage, `bun fmt` pour le formatage, `bun test`, et `bun lint --type-aware` dès sa première version stable), TypeScript strict, `@noble/ed25519` 2.2.3, `@noble/hashes` 1.8.0, `@scure/base` 1.2.6, GitHub Actions.
 
 **Spec:** `docs/superpowers/specs/2026-11-11-bclt-design.md` (sections 2, 4.1, 4.6, 8.4).
 
@@ -63,11 +63,11 @@ Expected: FAIL, module `../src/index` introuvable.
 
 - [ ] **Step 3: Créer la racine**
 
-`package.json` racine : `"name": "bclt"`, `"private": true`, `"workspaces": ["packages/*", "apps/*"]`, scripts `fmt: "bun fmt"`, `verify: "bun fmt --check && bun check && bun test"`. Aucune dépendance de dev : typage par `bun check`, formatage par `bun fmt`. Si `bun check` réclame `typescript`, l'ajouter en version exacte et le noter dans le README.
+`package.json` racine : `"name": "bclt"`, `"private": true`, `"workspaces": ["packages/*", "apps/*"]`, scripts `fmt: "bun fmt"`, `lint: "bun lint --type-aware"`, `verify: "bun fmt --check && bun check && bun test"` (le lint rejoint `verify` à la tâche 10, voir ci-dessous). Aucune dépendance de dev : typage par `bun check`, formatage par `bun fmt`. Si `bun check` réclame `typescript`, l'ajouter en version exacte et le noter dans le README.
 
 `tsconfig.base.json` : `strict`, `noUncheckedIndexedAccess`, `noUnusedLocals`, `noUnusedParameters`, `module: "ESNext"`, `moduleResolution: "bundler"`, `target: "ES2022"`, `types: ["bun-types"]`, `resolveJsonModule: true` (les tests importent `spec/vectors/*.json`), `noEmit`.
 
-`bunfig.toml` : section `[fmt]` avec `print-width = 100` (2 espaces, guillemets doubles et points-virgules sont les défauts).
+`bunfig.toml` : section `[fmt]` avec `print-width = 100` (2 espaces, guillemets doubles et points-virgules sont les défauts), et section `[lint]` avec `typeAware = true`, prête pour `bun lint` (présent en canary, absent de la 1.4.4 stable ; la configuration est inerte tant que la commande n'existe pas).
 
 `.gitignore` : `node_modules`, `dist`, `.expo`, `*.log`, `.env*`, `.DS_Store`.
 
@@ -837,9 +837,11 @@ test("generate.ts reproduces the committed vectors byte for byte", () => {
 
 - [ ] **Step 5: Mettre à jour la spec de conception** : dans la section 2.4, remplacer la phrase sur le premier message portant la version par la négociation du sous-protocole `bclt.v0` au handshake WebSocket, et ajouter kinds 100 et 101 au tableau 2.3 avec la mention "jamais stockés".
 
-- [ ] **Step 6: Vérification finale de la phase** — Run: `bun install --frozen-lockfile && bun run verify` — Expected: tout PASS ; puis pousser et vérifier que la CI GitHub est verte sur `main`.
+- [ ] **Step 6: Activer `bun lint` si une version stable le contient** : vérifier sur https://bun.com/blog si une version stable postérieure à 1.4.4 inclut `bun lint`. Si oui : mettre cette version dans `oven-sh/setup-bun` de la CI, mettre à jour Bun localement (`bun upgrade`), ajouter `bun lint --type-aware --max-warnings 0 &&` en tête du script `verify`, corriger ce qu'il remonte, et noter la version minimale de Bun dans le README. Si non : laisser `verify` tel quel et ouvrir une tâche dans le plan 2.
 
-- [ ] **Step 7: Commit et push**
+- [ ] **Step 7: Vérification finale de la phase** — Run: `bun install --frozen-lockfile && bun run verify` — Expected: tout PASS ; puis pousser et vérifier que la CI GitHub est verte sur `main`.
+
+- [ ] **Step 8: Commit et push**
 
 ```bash
 git add -A
