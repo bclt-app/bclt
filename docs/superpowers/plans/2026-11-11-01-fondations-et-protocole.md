@@ -18,7 +18,7 @@
 - `packages/protocol` : licence MIT, aucune dépendance autre que `@noble/ed25519`, `@noble/hashes`, `@scure/base`. Jamais de crypto maison.
 - Hexadécimal toujours en minuscules ; une chaîne hex en majuscules est invalide.
 - Textes destinés aux utilisateurs en français ; identifiants de code, messages de protocole et commits en anglais.
-- Commits fréquents, préfixés `feat:`, `test:`, `chore:`, `docs:`, chacun avec la ligne `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Commits fréquents, préfixés `feat:`, `test:`, `chore:`, `docs:`, chacun terminé par la ligne `Co-Authored-By:` du modèle qui a réellement produit le commit, telle que l'environnement la fournit au moment du commit (ne jamais recopier un nom de modèle depuis ce plan).
 - Développement en TDD : chaque tâche commence par ses tests qui échouent.
 
 ## Review Focus
