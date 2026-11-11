@@ -22,7 +22,7 @@
 - Développement en TDD : chaque tâche commence par ses tests qui échouent.
 - Les blocs de test de ce plan dépassent `print-width = 100` : lancer `bun fmt` (ou `bun fmt --changed=origin/main`) avant chaque `bun run verify`, sinon `bun fmt --check` échoue.
 - Un ticket = une branche (nom fourni par Linear) = une PR vers `main`. Jamais de push direct sur `main`.
-- Dépendances de dev : seul `@types/bun` 1.4.4 à la racine (tâche 1). La contrainte « aucune dépendance » de `packages/protocol` ne vise que ses dépendances d'exécution.
+- Dépendances de dev : seul `@types/bun` 1.4.4 à la racine (tâche 1), plus `typescript` en version exacte si `bun check` l'exige. La contrainte « aucune dépendance » de `packages/protocol` ne vise que ses dépendances d'exécution.
 
 ## Review Focus
 
@@ -43,6 +43,7 @@ Chaque ligne est couverte par un test ajouté dans la tâche qui possède le cod
 - Create: `packages/protocol/package.json`, `packages/protocol/tsconfig.json`, `packages/protocol/LICENSE` (MIT), `packages/protocol/src/index.ts`
 - Test: `packages/protocol/test/smoke.test.ts`
 - Modify: `README.md`
+- Modify (formatage seul, commit séparé, étape 4) : `docs/**/*.md`
 
 **Interfaces:**
 - Produces: script racine `bun run verify` (= `bun fmt --check && bun check && bun test`) ; paquet `@bclt/protocol` importable par les futurs espaces de travail.
@@ -858,7 +859,7 @@ test("generate.ts reproduces the committed vectors byte for byte", () => {
 
 - [ ] **Step 6: Activer `bun lint` si une version stable le contient** : vérifier sur https://bun.com/blog si une version stable postérieure à 1.4.4 inclut `bun lint`. Si oui : mettre cette version dans `oven-sh/setup-bun` de la CI, mettre à jour Bun localement (`bun upgrade`), ajouter `bun lint --type-aware --max-warnings 0 &&` en tête du script `verify`, corriger ce qu'il remonte, et noter la version minimale de Bun dans le README. Si non : laisser `verify` tel quel et ouvrir une tâche dans le plan 2.
 
-- [ ] **Step 7: Vérification finale de la phase** — Run: `bun install --frozen-lockfile && bun fmt && bun run verify` — Expected: tout PASS ; puis pousser la branche du ticket et vérifier que la CI GitHub est verte sur la PR.
+- [ ] **Step 7: Vérification finale de la phase** — Run: `bun install --frozen-lockfile && bun fmt && bun run verify` — Expected: tout PASS en local.
 
 - [ ] **Step 8: Commit, push de la branche et PR**
 
@@ -866,7 +867,7 @@ test("generate.ts reproduces the committed vectors byte for byte", () => {
 git add -A
 git commit -m "docs: protocol package readme, vector generator, spec alignment"
 git push -u origin HEAD
-gh pr create --base main --title "docs: protocol package readme, vector generator, spec alignment (<ID>)"
+gh pr create --base main --fill
 ```
 
-`HEAD` est la branche Linear du ticket ; `<ID>` est l'identifiant du ticket. La PR est mergée après CI verte, jamais poussée directement sur `main`.
+`HEAD` est la branche Linear du ticket ; ajouter l'identifiant du ticket (ex. `BCL-12`) au titre de la PR. Vérifier ensuite que la CI GitHub est verte sur la PR (`gh pr checks`). La PR est mergée après CI verte, jamais poussée directement sur `main`.
