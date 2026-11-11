@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Un dépôt outillé (Bun, TypeScript, Biome, CI) contenant la spec formelle du protocole bclt v0, ses vecteurs de test, et le paquet `@bclt/protocol` qui les passe tous.
+**Goal:** Un dépôt outillé (Bun, TypeScript, CI) contenant la spec formelle du protocole bclt v0, ses vecteurs de test, et le paquet `@bclt/protocol` qui les passe tous.
 
 **Architecture:** Monorepo Bun à espaces de travail. `spec/` est la source de vérité lisible par un humain et par une autre implémentation ; `packages/protocol` en est la seule implémentation TypeScript, pure (aucune dépendance de plateforme, aucune notion de produit), consommée ensuite par `core`, `relay` et `media` (plans 2 et 3).
 
-**Tech Stack:** Bun 1.4, TypeScript strict, Biome (lint et format), `bun test`, `@noble/ed25519` 2.2.3, `@noble/hashes` 1.8.0, `@scure/base` 1.2.6, GitHub Actions.
+**Tech Stack:** Bun 1.4 (`bun check` pour le typage, `bun fmt` pour le formatage, `bun test`), TypeScript strict, pas de linter, `@noble/ed25519` 2.2.3, `@noble/hashes` 1.8.0, `@scure/base` 1.2.6, GitHub Actions.
 
 **Spec:** `docs/superpowers/specs/2026-11-11-bclt-design.md` (sections 2, 4.1, 4.6, 8.4).
 
@@ -36,13 +36,13 @@ Chaque ligne est couverte par un test ajouté dans la tâche qui possède le cod
 ### Tâche 1 : squelette du monorepo et CI
 
 **Files:**
-- Create: `package.json`, `bunfig.toml`, `tsconfig.base.json`, `biome.json`, `.gitignore`, `.editorconfig`, `LICENSE` (AGPL-3.0), `.github/workflows/ci.yml`
+- Create: `package.json`, `bunfig.toml`, `tsconfig.base.json`, `.gitignore`, `.editorconfig`, `LICENSE` (AGPL-3.0), `.github/workflows/ci.yml`
 - Create: `packages/protocol/package.json`, `packages/protocol/tsconfig.json`, `packages/protocol/LICENSE` (MIT), `packages/protocol/src/index.ts`
 - Test: `packages/protocol/test/smoke.test.ts`
 - Modify: `README.md`
 
 **Interfaces:**
-- Produces: scripts racine `bun run check` (Biome), `bun run typecheck` (tsc sur chaque espace de travail), `bun test` ; paquet `@bclt/protocol` importable par les futurs espaces de travail.
+- Produces: script racine `bun run verify` (= `bun fmt --check && bun check && bun test`) ; paquet `@bclt/protocol` importable par les futurs espaces de travail.
 
 - [ ] **Step 1: Écrire le test de fumée**
 
@@ -63,11 +63,11 @@ Expected: FAIL, module `../src/index` introuvable.
 
 - [ ] **Step 3: Créer la racine**
 
-`package.json` racine : `"name": "bclt"`, `"private": true`, `"workspaces": ["packages/*", "apps/*"]`, scripts `check: "biome check ."`, `check:fix: "biome check --write ."`, `typecheck: "bun run --filter '*' typecheck"`, `test: "bun test"`. Dépendances de dev : `@biomejs/biome` 2.x, `typescript` 5.x (versions exactes au moment de l'installation).
+`package.json` racine : `"name": "bclt"`, `"private": true`, `"workspaces": ["packages/*", "apps/*"]`, scripts `fmt: "bun fmt"`, `verify: "bun fmt --check && bun check && bun test"`. Aucune dépendance de dev : typage par `bun check`, formatage par `bun fmt`. Si `bun check` réclame `typescript`, l'ajouter en version exacte et le noter dans le README.
 
-`tsconfig.base.json` : `strict`, `noUncheckedIndexedAccess`, `module: "ESNext"`, `moduleResolution: "bundler"`, `target: "ES2022"`, `types: ["bun-types"]`, `resolveJsonModule: true` (les tests importent `spec/vectors/*.json`), `noEmit`.
+`tsconfig.base.json` : `strict`, `noUncheckedIndexedAccess`, `noUnusedLocals`, `noUnusedParameters`, `module: "ESNext"`, `moduleResolution: "bundler"`, `target: "ES2022"`, `types: ["bun-types"]`, `resolveJsonModule: true` (les tests importent `spec/vectors/*.json`), `noEmit`.
 
-`biome.json` : formatter 2 espaces, guillemets doubles, largeur 100, linter `recommended`.
+`bunfig.toml` : section `[fmt]` avec `print-width = 100` (2 espaces, guillemets doubles et points-virgules sont les défauts).
 
 `.gitignore` : `node_modules`, `dist`, `.expo`, `*.log`, `.env*`, `.DS_Store`.
 
@@ -75,18 +75,18 @@ Expected: FAIL, module `../src/index` introuvable.
 
 - [ ] **Step 4: Créer le paquet `@bclt/protocol`**
 
-`packages/protocol/package.json` : `"name": "@bclt/protocol"`, `"version": "0.0.1"`, `"license": "MIT"`, `"type": "module"`, `"exports": { ".": "./src/index.ts" }`, script `typecheck: "tsc -p tsconfig.json"`, dépendances exactes `@noble/ed25519@2.2.3`, `@noble/hashes@1.8.0`, `@scure/base@1.2.6`. `tsconfig.json` étend la base, `include: ["src", "test"]`.
+`packages/protocol/package.json` : `"name": "@bclt/protocol"`, `"version": "0.0.1"`, `"license": "MIT"`, `"type": "module"`, `"exports": { ".": "./src/index.ts" }`, dépendances exactes `@noble/ed25519@2.2.3`, `@noble/hashes@1.8.0`, `@scure/base@1.2.6`. `tsconfig.json` étend la base, `include: ["src", "test"]`.
 
 `src/index.ts` : `export const PROTOCOL_VERSION = "v0" as const;`
 
 - [ ] **Step 5: Installer et vérifier**
 
-Run: `bun install && bun run check && bun run typecheck && bun test`
+Run: `bun install && bun run verify`
 Expected: les trois commandes passent, 1 test PASS.
 
 - [ ] **Step 6: CI**
 
-`.github/workflows/ci.yml` : déclenché sur `push` et `pull_request`, un job Ubuntu avec `oven-sh/setup-bun@v2` (version `1.4.4`), puis `bun install --frozen-lockfile`, `bun run check`, `bun run typecheck`, `bun test`.
+`.github/workflows/ci.yml` : déclenché sur `push` et `pull_request`, un job Ubuntu avec `oven-sh/setup-bun@v2` (version `1.4.4`), puis `bun install --frozen-lockfile` et `bun run verify`.
 
 - [ ] **Step 7: README**
 
@@ -296,7 +296,7 @@ Expected: FAIL, modules `../src/canonical` et `../src/keys` introuvables.
 
 - [ ] **Step 6: Lancer, vérifier le succès**
 
-Run: `bun test packages/protocol && bun run typecheck && bun run check`
+Run: `bun run verify`
 Expected: tous PASS, aucune erreur de typage ni de lint.
 
 - [ ] **Step 7: Commit**
@@ -345,7 +345,7 @@ test("isHex accepts lowercase of the right length only", () => {
 
 - [ ] **Step 3: Implémenter `encoding.ts`** avec `bech32` de `@scure/base` (limite 90), `isHex` par expression régulière `/^[0-9a-f]+$/`.
 
-- [ ] **Step 4: Lancer, vérifier le succès** — Run: `bun test packages/protocol && bun run typecheck && bun run check` — Expected: PASS.
+- [ ] **Step 4: Lancer, vérifier le succès** — Run: `bun run verify` — Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -500,7 +500,7 @@ test("auth and media-auth: required tags and time window", () => {
 
 `validateEvent` applique les étapes dans l'ordre de l'interface, chaque étape retournant tôt. La taille se mesure par `new TextEncoder().encode(JSON.stringify(input)).length` et se vérifie avant tout accès aux champs. Les règles par kind sont une table `Record<number, (e: Event) => ValidationError | null>` dans `validate.ts`, remplie par les modules `kinds/*`. Base64 : expression régulière `/^[A-Za-z0-9+/]+={0,2}$/` et longueur multiple de 4.
 
-- [ ] **Step 5: Lancer, vérifier le succès** — Run: `bun test packages/protocol && bun run typecheck && bun run check` — Expected: PASS.
+- [ ] **Step 5: Lancer, vérifier le succès** — Run: `bun run verify` — Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
@@ -589,7 +589,7 @@ test("normalizeSearch strips accents and case", () => {
 
 - [ ] **Step 3: Implémenter `replaceable.ts` et `filter.ts`**, exporter depuis `index.ts`.
 
-- [ ] **Step 4: Lancer, vérifier le succès** — Run: `bun test packages/protocol && bun run typecheck && bun run check` — Expected: PASS.
+- [ ] **Step 4: Lancer, vérifier le succès** — Run: `bun run verify` — Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -659,7 +659,7 @@ test("okMessage format", () => expect(okMessage("invalid", "bad sig")).toBe("inv
 
 - [ ] **Step 3: Implémenter `messages.ts`** : `JSON.parse` dans un `try/catch`, puis dispatch sur `raw[0]`.
 
-- [ ] **Step 4: Lancer, vérifier le succès** — Run: `bun test packages/protocol && bun run typecheck && bun run check` — Expected: PASS.
+- [ ] **Step 4: Lancer, vérifier le succès** — Run: `bun run verify` — Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -718,7 +718,7 @@ test("media auth header round-trip and mismatches", () => {
 
 - [ ] **Step 3: Implémenter `auth.ts`** en s'appuyant sur `signEvent` et `validateEvent` ; base64 via `btoa`/`atob` sur une chaîne UTF-8 encodée (ou `@scure/base` `base64`).
 
-- [ ] **Step 4: Lancer, vérifier le succès** — Run: `bun test packages/protocol && bun run typecheck && bun run check` — Expected: PASS.
+- [ ] **Step 4: Lancer, vérifier le succès** — Run: `bun run verify` — Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -797,7 +797,7 @@ test("every builder yields a valid event", () => {
 
 - [ ] **Step 3: Implémenter `text.ts` et `builders.ts`**. Hashtags : expression régulière `/#([\p{L}\p{N}_]{1,100})(?![\p{L}\p{N}_])/gu`. Mentions : `/@(bclt1[02-9ac-hj-np-z]{6,})/g` puis `decodePubkey`. Exporter depuis `index.ts`.
 
-- [ ] **Step 4: Lancer, vérifier le succès** — Run: `bun test packages/protocol && bun run typecheck && bun run check` — Expected: PASS.
+- [ ] **Step 4: Lancer, vérifier le succès** — Run: `bun run verify` — Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -837,7 +837,7 @@ test("generate.ts reproduces the committed vectors byte for byte", () => {
 
 - [ ] **Step 5: Mettre à jour la spec de conception** : dans la section 2.4, remplacer la phrase sur le premier message portant la version par la négociation du sous-protocole `bclt.v0` au handshake WebSocket, et ajouter kinds 100 et 101 au tableau 2.3 avec la mention "jamais stockés".
 
-- [ ] **Step 6: Vérification finale de la phase** — Run: `bun install --frozen-lockfile && bun run check && bun run typecheck && bun test` — Expected: tout PASS ; puis pousser et vérifier que la CI GitHub est verte sur `main`.
+- [ ] **Step 6: Vérification finale de la phase** — Run: `bun install --frozen-lockfile && bun run verify` — Expected: tout PASS ; puis pousser et vérifier que la CI GitHub est verte sur `main`.
 
 - [ ] **Step 7: Commit et push**
 
